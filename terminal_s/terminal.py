@@ -22,8 +22,7 @@ import click
 import serial
 from serial.tools import list_ports
 
-
-def run(port, baudrate, parity='N', stopbits=1):
+def run(port, baudrate, parity='N', stopbits=1 , grep_data_list=[]):
     try:
         device = serial.Serial(port=port,
                                 baudrate=baudrate,
@@ -36,6 +35,7 @@ def run(port, baudrate, parity='N', stopbits=1):
         return 0
 
     print('--- {} is connected. Press Ctrl+] to quit ---'.format(port))
+    # print('grep_data is',grep_data_list)
     queue = deque()
     def read_input():
         if os.name == 'nt':
@@ -78,7 +78,17 @@ def run(port, baudrate, parity='N', stopbits=1):
 
             line = device.readline()
             if line:
-                print(line.decode(errors='replace'), end='', flush=True)
+                if grep_data_list != []:
+                    print_flag = True
+                    for grep_data in grep_data_list:
+                        if line.find(grep_data.encode("utf8")) ==-1:
+                            # find not
+                            print_flag = False
+                            break
+                    if print_flag:
+                        print(line.decode(errors='replace'), end='', flush=True)
+                else:
+                    print(line.decode(errors='replace'), end='', flush=True)
         except IOError:
             print('--- {} is disconnected ---'.format(port))
             break
@@ -102,7 +112,8 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--parity', default='N', type=click.Choice(['N', 'E', 'O', 'S', 'M']), help='set parity')
 @click.option('-s', '--stopbits', default=1, help='set stop bits')
 @click.option('-l', is_flag=True, help='list serial ports')
-def main(port, baudrate, parity, stopbits, l):
+@click.option('-g', '--grep_data', default="", help='grep data')
+def main(port, baudrate, parity, stopbits, l ,grep_data):
     if port is None:
         ports = list_ports.comports()
         if not ports:
@@ -123,7 +134,7 @@ def main(port, baudrate, parity, stopbits, l):
             except:
                 return
 
-    while run(port, baudrate, parity, stopbits):
+    while run(port, baudrate, parity, stopbits , grep_data.split(",")):
         pass
 
 if __name__ == "__main__":
